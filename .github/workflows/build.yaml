@@ -75,3 +75,5 @@ jobs:
             KUBECTX_VERSION=${{ env.KUBECTX_VERSION }}
             KUBECOLOR_VERSION=${{ env.KUBECOLOR_VERSION }}
             EZA_VERSION=${{ env.EZA_VERSION }}
+            FZF_VERSION=${{ env.FZF_VERSION }}
+            DIRENV_VERSION=${{ env.DIRENV_VERSION }}

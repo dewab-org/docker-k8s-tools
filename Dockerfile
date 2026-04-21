@@ -26,6 +26,8 @@ ARG KUBECTL_VERSION
 ARG KUBECTX_VERSION
 ARG KUBECOLOR_VERSION
 ARG EZA_VERSION
+ARG FZF_VERSION
+ARG DIRENV_VERSION
 
 RUN apt-get update && \
     apt-get upgrade -y && \
@@ -47,6 +49,8 @@ ADD https://github.com/carvel-dev/vendir/releases/download/v${VENDIR_VERSION}/ve
 ADD https://github.com/vmware-tanzu/velero/releases/download/v${VELERO_VERSION}/velero-v${VELERO_VERSION}-${TARGET_OS}-${TARGET_ARCH}.tar.gz /tmp/velero.tar.gz
 ADD https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/${TARGET_OS}/${TARGET_ARCH}/kubectl /tmp/kubectl
 ADD https://github.com/kubecolor/kubecolor/releases/download/v${KUBECOLOR_VERSION}/kubecolor_${KUBECOLOR_VERSION}_${TARGET_OS}_${TARGET_ARCH}.tar.gz /tmp/kubecolor.tar.gz
+ADD https://github.com/junegunn/fzf/releases/download/v${FZF_VERSION}/fzf-${FZF_VERSION}-${TARGET_OS}_${TARGET_ARCH}.tar.gz /tmp/fzf.tar.gz
+ADD https://github.com/direnv/direnv/releases/download/v${DIRENV_VERSION}/direnv.${TARGET_OS}-${TARGET_ARCH} /tmp/direnv
 
 RUN curl -fSL -o /tmp/k9s.tar.gz "https://github.com/derailed/k9s/releases/download/v${K9S_VERSION}/k9s_${TARGET_OS^}_${TARGET_ARCH}.tar.gz"
 RUN EZA_ARCH=$(echo "$TARGET_ARCH" | sed 's/amd64/x86_64/;s/arm64/aarch64/') && \
@@ -75,6 +79,8 @@ RUN install -m 755 /tmp/yq /usr/local/bin/yq && \
     tar -xzf /tmp/kubens.tar.gz -C /usr/local/bin kubens && chmod +x /usr/local/bin/kubens && \
     tar -xzf /tmp/kubecolor.tar.gz -C /tmp && install -m 755 /tmp/kubecolor /usr/local/bin/kubecolor && \
     tar -xzf /tmp/eza.tar.gz -C /tmp && install -m 755 /tmp/eza /usr/local/bin/eza && \
+    tar -xzf /tmp/fzf.tar.gz -C /tmp && install -m 755 /tmp/fzf /usr/local/bin/fzf && \
+    install -m 755 /tmp/direnv /usr/local/bin/direnv && \
     mkdir tanzu-extract && \
     tar -xzf /tmp/tanzu-cli.tar.gz -C tanzu-extract && \
     mv tanzu-extract/v${TANZU_CLI_VERSION}/tanzu-cli-* /usr/local/bin/tanzu && chmod +x /usr/local/bin/tanzu && \
@@ -114,7 +120,9 @@ RUN jq -n \
   --arg yq "$(yq --version 2>/dev/null | grep -Eo '[0-9.]+$')" \
   --arg kubectx "$(kubectx -V 2>/dev/null | awk '{print $2}')" \
   --arg eza "$(eza --version 2>/dev/null | grep -Eo '[0-9.]+' | head -n1)" \
-  '{kubectl: $kubectl, helm: $helm, ytt: $ytt, kapp: $kapp, kctrl: $kctrl, kbld: $kbld, imgpkg: $imgpkg, vendir: $vendir, k9s: $k9s, tanzu: $tanzu, velero: $velero, yq: $yq, kubectx: $kubectx, eza: $eza}' \
+  --arg fzf "$(fzf --version 2>/dev/null | grep -Eo '[0-9.]+' | head -n1)" \
+  --arg direnv "$(direnv version 2>/dev/null)" \
+  '{kubectl: $kubectl, helm: $helm, ytt: $ytt, kapp: $kapp, kctrl: $kctrl, kbld: $kbld, imgpkg: $imgpkg, vendir: $vendir, k9s: $k9s, tanzu: $tanzu, velero: $velero, yq: $yq, kubectx: $kubectx, eza: $eza, fzf: $fzf, direnv: $direnv}' \
   > /versions.json
 
 RUN strip --strip-unneeded /usr/local/bin/*
@@ -136,7 +144,7 @@ LABEL org.opencontainers.image.title="k8s-cli-toolkit" \
 
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends zsh git jq vim curl ca-certificates zsh-common zsh-autosuggestions locales fzf zsh-syntax-highlighting direnv && \
+    apt-get install -y --no-install-recommends zsh git jq vim curl ca-certificates zsh-common zsh-autosuggestions locales zsh-syntax-highlighting && \
     rm -rf /var/lib/apt/lists/*
 
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \

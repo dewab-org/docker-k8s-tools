@@ -54,12 +54,14 @@ KUBECTL_VERSION=$(curl -fsSL https://dl.k8s.io/release/stable.txt | sed 's/^v//'
 KUBECTX_VERSION=$(get_latest_github_release "ahmetb/kubectx")
 KUBECOLOR_VERSION=$(get_latest_github_release "kubecolor/kubecolor")
 EZA_VERSION=$(get_latest_github_release "eza-community/eza")
+FZF_VERSION=$(get_latest_github_release "junegunn/fzf")
+DIRENV_VERSION=$(get_latest_github_release "direnv/direnv")
 
 # Export and append to GitHub Actions environment
 for var in YQ_VERSION HELM_VERSION YTT_VERSION KAPP_VERSION KCTRL_VERSION \
            KBLD_VERSION IMGPKG_VERSION VENDIR_VERSION K9S_VERSION \
            TANZU_CLI_VERSION VELERO_VERSION KUBECTL_VERSION KUBECTX_VERSION \
-           KUBECOLOR_VERSION EZA_VERSION; do
+           KUBECOLOR_VERSION EZA_VERSION FZF_VERSION DIRENV_VERSION; do
   append_to_github_env "$var" "${!var:-}"
 done
 
