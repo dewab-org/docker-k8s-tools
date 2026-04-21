@@ -14,24 +14,23 @@ It is designed to simplify tool setup for administrators—especially those work
 
 ## 📦 Included Tools
 
-| Tool       | Description                              |
-|------------|------------------------------------------|
-| `yq`       | YAML processor                           |
-| `helm`     | Kubernetes package manager               |
-| `ytt`      | YAML templating tool (Carvel)            |
-| `kapp`     | App deployment tool (Carvel)             |
-| `kctrl`    | App CR control CLI (Carvel)              |
-| `kbld`     | Build and image reference tool (Carvel)  |
-| `imgpkg`   | OCI image packaging tool (Carvel)        |
-| `vendir`   | Vendor directory manager (Carvel)        |
-| `k9s`      | Terminal UI for managing K8s clusters    |
-| `tanzu`    | VMware Tanzu CLI                         |
-| `velero`   | Backup and restore CLI                   |
-| `kubectl`  | Kubernetes CLI                           |
-| `kubecolor` | Colorizes kubectl output                |
-| `kubeswitch` | Switches between kube contexts         |
-| `kubectx` | Switches between kube contexts            |
-
+| Tool        | Description                              |
+|-------------|------------------------------------------|
+| `kubectl`   | Kubernetes CLI                           |
+| `helm`      | Kubernetes package manager               |
+| `k9s`       | Terminal UI for managing K8s clusters    |
+| `kubectx`   | Switch between kube contexts             |
+| `kubecolor` | Colorizes kubectl output                 |
+| `yq`        | YAML processor                           |
+| `ytt`       | YAML templating tool (Carvel)            |
+| `kapp`      | App deployment tool (Carvel)             |
+| `kctrl`     | App CR control CLI (Carvel)              |
+| `kbld`      | Build and image reference tool (Carvel)  |
+| `imgpkg`    | OCI image packaging tool (Carvel)        |
+| `vendir`    | Vendor directory manager (Carvel)        |
+| `tanzu`     | VMware Tanzu CLI                         |
+| `velero`    | Backup and restore CLI                   |
+| `eza`       | Modern replacement for `ls`             |
 
 > **Note:** The `kubectl-vsphere` plugin is included only on the `amd64` platform. There is currently no official Linux `arm64` build available.
 

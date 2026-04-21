@@ -24,8 +24,8 @@ ARG TANZU_CLI_VERSION
 ARG VELERO_VERSION
 ARG KUBECTL_VERSION
 ARG KUBECTX_VERSION
-ARG KUBESWITCH_VERSION
 ARG KUBECOLOR_VERSION
+ARG EZA_VERSION
 
 RUN apt-get update && \
     apt-get upgrade -y && \
@@ -46,10 +46,11 @@ ADD https://github.com/carvel-dev/imgpkg/releases/download/v${IMGPKG_VERSION}/im
 ADD https://github.com/carvel-dev/vendir/releases/download/v${VENDIR_VERSION}/vendir-${TARGET_OS}-${TARGET_ARCH} /tmp/vendir
 ADD https://github.com/vmware-tanzu/velero/releases/download/v${VELERO_VERSION}/velero-v${VELERO_VERSION}-${TARGET_OS}-${TARGET_ARCH}.tar.gz /tmp/velero.tar.gz
 ADD https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/${TARGET_OS}/${TARGET_ARCH}/kubectl /tmp/kubectl
-ADD https://github.com/danielfoehrKn/kubeswitch/releases/download/${KUBESWITCH_VERSION}/switcher_${TARGET_OS}_${TARGET_ARCH} /tmp/switcher
 ADD https://github.com/kubecolor/kubecolor/releases/download/v${KUBECOLOR_VERSION}/kubecolor_${KUBECOLOR_VERSION}_${TARGET_OS}_${TARGET_ARCH}.tar.gz /tmp/kubecolor.tar.gz
 
 RUN curl -fSL -o /tmp/k9s.tar.gz "https://github.com/derailed/k9s/releases/download/v${K9S_VERSION}/k9s_${TARGET_OS^}_${TARGET_ARCH}.tar.gz"
+RUN EZA_ARCH=$(echo "$TARGET_ARCH" | sed 's/amd64/x86_64/;s/arm64/aarch64/') && \
+    curl -fsSL -o /tmp/eza.tar.gz "https://github.com/eza-community/eza/releases/download/v${EZA_VERSION}/eza_${EZA_ARCH}-unknown-linux-gnu.tar.gz"
 RUN curl -fsSL -o /tmp/kubectx.tar.gz "https://github.com/ahmetb/kubectx/releases/download/v${KUBECTX_VERSION}/kubectx_v${KUBECTX_VERSION}_${TARGET_OS}_${TARGET_ARCH/amd64/x86_64}.tar.gz"
 RUN curl -fsSL -o /tmp/kubens.tar.gz "https://github.com/ahmetb/kubectx/releases/download/v${KUBECTX_VERSION}/kubens_v${KUBECTX_VERSION}_${TARGET_OS}_${TARGET_ARCH/amd64/x86_64}.tar.gz"
 RUN TANZU_FILENAME="tanzu-cli-${TARGET_OS}-${TARGET_ARCH}.tar.gz" && \
@@ -67,13 +68,13 @@ RUN install -m 755 /tmp/yq /usr/local/bin/yq && \
     install -m 755 /tmp/imgpkg /usr/local/bin/imgpkg && \
     install -m 755 /tmp/vendir /usr/local/bin/vendir && \
     install -m 755 /tmp/kubectl /usr/local/bin/kubectl && \
-    install -m 755 /tmp/switcher /usr/local/bin/switcher && \
     tar -xzf /tmp/helm.tar.gz --strip-components=1 -C /usr/local/bin "${TARGET_OS}-${TARGET_ARCH}/helm" && \
     tar -xzf /tmp/k9s.tar.gz && install -m 755 k9s /usr/local/bin/k9s && \
     tar -xzf /tmp/velero.tar.gz --strip-components=1 -C /usr/local/bin "velero-v${VELERO_VERSION}-${TARGET_OS}-${TARGET_ARCH}/velero" && \
     tar -xzf /tmp/kubectx.tar.gz -C /usr/local/bin kubectx && chmod +x /usr/local/bin/kubectx && \
     tar -xzf /tmp/kubens.tar.gz -C /usr/local/bin kubens && chmod +x /usr/local/bin/kubens && \
     tar -xzf /tmp/kubecolor.tar.gz -C /tmp && install -m 755 /tmp/kubecolor /usr/local/bin/kubecolor && \
+    tar -xzf /tmp/eza.tar.gz -C /tmp && install -m 755 /tmp/eza /usr/local/bin/eza && \
     mkdir tanzu-extract && \
     tar -xzf /tmp/tanzu-cli.tar.gz -C tanzu-extract && \
     mv tanzu-extract/v${TANZU_CLI_VERSION}/tanzu-cli-* /usr/local/bin/tanzu && chmod +x /usr/local/bin/tanzu && \
@@ -95,8 +96,7 @@ RUN git clone --depth=1 https://github.com/romkatv/powerlevel10k.git /usr/local/
     k9s completion zsh > /usr/local/share/zsh/site-functions/_k9s 2>/dev/null || true && \
     tanzu completion zsh > /usr/local/share/zsh/site-functions/_tanzu 2>/dev/null || true && \
     velero completion zsh > /usr/local/share/zsh/site-functions/_velero 2>/dev/null || true && \
-    yq completion zsh > /usr/local/share/zsh/site-functions/_yq 2>/dev/null || true && \
-    switcher completion zsh > /usr/local/share/zsh/site-functions/_switcher 2>/dev/null || true
+    yq completion zsh > /usr/local/share/zsh/site-functions/_yq 2>/dev/null || true
 
 # Collect tool versions to display in the banner
 RUN jq -n \
@@ -113,8 +113,8 @@ RUN jq -n \
   --arg velero "$(velero version 2>/dev/null | grep -Eo 'v[0-9.]+' | head -n1)" \
   --arg yq "$(yq --version 2>/dev/null | grep -Eo '[0-9.]+$')" \
   --arg kubectx "$(kubectx -V 2>/dev/null | awk '{print $2}')" \
-  --arg kubeswitch "$(switcher version | grep -Eo '[0-9.]+' | head -n1)" \
-  '{kubectl: $kubectl, helm: $helm, ytt: $ytt, kapp: $kapp, kctrl: $kctrl, kbld: $kbld, imgpkg: $imgpkg, vendir: $vendir, k9s: $k9s, tanzu: $tanzu, velero: $velero, yq: $yq, kubectx: $kubectx, kubeswitch: $kubeswitch}' \
+  --arg eza "$(eza --version 2>/dev/null | grep -Eo '[0-9.]+' | head -n1)" \
+  '{kubectl: $kubectl, helm: $helm, ytt: $ytt, kapp: $kapp, kctrl: $kctrl, kbld: $kbld, imgpkg: $imgpkg, vendir: $vendir, k9s: $k9s, tanzu: $tanzu, velero: $velero, yq: $yq, kubectx: $kubectx, eza: $eza}' \
   > /versions.json
 
 RUN strip --strip-unneeded /usr/local/bin/*
@@ -135,7 +135,8 @@ LABEL org.opencontainers.image.title="k8s-cli-toolkit" \
       org.opencontainers.image.authors="dwhicker@bifrost.cc"
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends zsh git jq vim curl ca-certificates zsh-common zsh-autosuggestions exa locales fzf zsh-syntax-highlighting direnv && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends zsh git jq vim curl ca-certificates zsh-common zsh-autosuggestions locales fzf zsh-syntax-highlighting direnv && \
     rm -rf /var/lib/apt/lists/*
 
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \

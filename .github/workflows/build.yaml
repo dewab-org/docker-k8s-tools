@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+  schedule:
+    - cron: '0 3 * * 1'   # every Monday 03:00 UTC
   workflow_dispatch:
 
 env:
@@ -46,7 +48,7 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
@@ -70,6 +72,6 @@ jobs:
             VELERO_VERSION=${{ env.VELERO_VERSION }}
             KUBECTL_VERSION=${{ env.KUBECTL_VERSION }}
             IMAGE_VERSION=${{ env.IMAGE_VERSION }}
-            KUBESWITCH_VERSION=${{ env.KUBESWITCH_VERSION }}
             KUBECTX_VERSION=${{ env.KUBECTX_VERSION }}
             KUBECOLOR_VERSION=${{ env.KUBECOLOR_VERSION }}
+            EZA_VERSION=${{ env.EZA_VERSION }}

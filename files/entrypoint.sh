@@ -2,7 +2,7 @@
 
 set -eu
 
-# Trust additional CA certs
+# Copy new CA certs from /ca to /k8s/.ca
 if [ -d /ca ]; then
   mkdir -p /k8s/.ca
   echo "📦 Scanning /ca for CA certificates..."
@@ -15,6 +15,7 @@ if [ -d /ca ]; then
   done
 fi
 
+# Trust additional CA certs
 set -- /k8s/.ca/*.crt
 if [ -e "$1" ]; then
   echo "🔐 Updating CA certificates from /k8s/.ca"

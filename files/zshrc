@@ -76,11 +76,6 @@ else
   echo "⚠️ Powerlevel10k theme not found, skipping."
 fi
 
-# ----- Initialize Kubeswitch -----
-if [ -x /usr/local/bin/switcher ]; then
-  source <(switcher init zsh)
-fi
-
 # ----- Color Setup -----
 autoload -U colors && colors
 
@@ -99,10 +94,10 @@ alias ku='kubectl config use-context'
 alias kctx=kubectx
 alias h=helm
 alias t=tanzu
-alias l.='exa --list-dirs .* --icons --color-scale'
-alias la='exa --classify --icons --color-scale --all'
-alias ll='exa --classify --long --icons --color-scale --all'
-alias ls='exa --icons --color-scale'
+alias l.='eza --list-dirs .* --icons --color-scale'
+alias la='eza --classify --icons --color-scale --all'
+alias ll='eza --classify --long --icons --color-scale --all'
+alias ls='eza --icons --color-scale'
 
 # ----- Functions -----
 set-kubeconfig() {

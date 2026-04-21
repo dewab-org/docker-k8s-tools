@@ -50,16 +50,16 @@ VENDIR_VERSION=$(get_latest_github_release "carvel-dev/vendir")
 K9S_VERSION=$(get_latest_github_release "derailed/k9s")
 TANZU_CLI_VERSION=$(get_latest_github_release "vmware-tanzu/tanzu-cli")
 VELERO_VERSION=$(get_latest_github_release "vmware-tanzu/velero")
-KUBECTL_VERSION=$(curl -fsSL https://storage.googleapis.com/kubernetes-release/release/stable.txt | sed 's/^v//')
+KUBECTL_VERSION=$(curl -fsSL https://dl.k8s.io/release/stable.txt | sed 's/^v//')
 KUBECTX_VERSION=$(get_latest_github_release "ahmetb/kubectx")
-KUBESWITCH_VERSION=$(get_latest_github_release "danielfoehrKn/kubeswitch")
 KUBECOLOR_VERSION=$(get_latest_github_release "kubecolor/kubecolor")
+EZA_VERSION=$(get_latest_github_release "eza-community/eza")
 
 # Export and append to GitHub Actions environment
 for var in YQ_VERSION HELM_VERSION YTT_VERSION KAPP_VERSION KCTRL_VERSION \
            KBLD_VERSION IMGPKG_VERSION VENDIR_VERSION K9S_VERSION \
            TANZU_CLI_VERSION VELERO_VERSION KUBECTL_VERSION KUBECTX_VERSION \
-           KUBESWITCH_VERSION KUBECOLOR_VERSION; do
+           KUBECOLOR_VERSION EZA_VERSION; do
   append_to_github_env "$var" "${!var:-}"
 done
 
