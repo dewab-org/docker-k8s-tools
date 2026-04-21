@@ -1,6 +1,6 @@
 # 🧰 Kubernetes CLI Toolkit
 
-[![Build and Push to GHCR](https://github.com/dewab/docker-k8s-tools/actions/workflows/build.yaml/badge.svg)](https://github.com/dewab/docker-k8s-tools/actions/workflows/build.yaml)
+[![Build and Push to GHCR](https://github.com/dewab-org/docker-k8s-tools/actions/workflows/build.yaml/badge.svg)](https://github.com/dewab-org/docker-k8s-tools/actions/workflows/build.yaml)
 
 ---
 
@@ -45,19 +45,19 @@ docker run --rm -it \
   -v <manifestdir>:/work \
   -v ${HOME}/.kube/config:/kubeconfig \
   -p 80:80 \
-  ghcr.io/dewab/docker-k8s-tools:latest
+  ghcr.io/dewab-org/docker-k8s-tools:latest
 ```
 
 example:
 
 ```bash
-docker run --rm -it -v k8s-home:/k8s -v ${HOME}/ca:/ca -p 80:80 ghcr.io/dewab/docker-k8s-tools:latest
+docker run --rm -it -v k8s-home:/k8s -v ${HOME}/ca:/ca -p 80:80 ghcr.io/dewab-org/docker-k8s-tools:latest
 ```
 
 example for Windows:
 
 ```bash
-docker run --rm -it -v k8s-home:/k8s -v C:\kuberenetes\ca:/ca -v C:\kubernetes:/work -p 80:80 ghcr.io/dewab/docker-k8s-tools:latest
+docker run --rm -it -v k8s-home:/k8s -v C:\kuberenetes\ca:/ca -v C:\kubernetes:/work -p 80:80 ghcr.io/dewab-org/docker-k8s-tools:latest
 ```
 
 ---
@@ -168,7 +168,7 @@ podman machine start
 The command to run the container in podman on Windows might look like this:
 
 ```bash
-podman run --rm -it -v k8s-home:/k8s -v c:\Kubernetes\ca:/ca -v c:\kubernetes:/work -p 80:80 ghcr.io/dewab/docker-k8s-tools:latest
+podman run --rm -it -v k8s-home:/k8s -v c:\Kubernetes\ca:/ca -v c:\kubernetes:/work -p 80:80 ghcr.io/dewab-org/docker-k8s-tools:latest
 ```
 
 ---

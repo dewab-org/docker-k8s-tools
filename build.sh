@@ -42,7 +42,7 @@ done < "$GITHUB_ENV"
 # Extract image version
 # ────────────────────────────────────────────────
 IMAGE_VERSION=$(awk -F= '/^IMAGE_VERSION=/{print $2}' "$GITHUB_ENV" | tr -d '"')
-IMAGE_NAME="dewab/k8s-cli-toolkit"
+IMAGE_NAME="dewab-org/k8s-cli-toolkit"
 
 # ────────────────────────────────────────────────
 # Output info

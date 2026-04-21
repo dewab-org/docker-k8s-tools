@@ -130,7 +130,7 @@ ARG TARGET_ARCH
 
 LABEL org.opencontainers.image.title="k8s-cli-toolkit" \
       org.opencontainers.image.description="Multi-arch container with Kubernetes CLI tools" \
-      org.opencontainers.image.source="https://github.com/dewab/docker-k8s-tools" \
+      org.opencontainers.image.source="https://github.com/dewab-org/docker-k8s-tools" \
       org.opencontainers.image.version="${IMAGE_VERSION}" \
       org.opencontainers.image.authors="dwhicker@bifrost.cc"
 

@@ -202,7 +202,7 @@ else
   echo "    ${fg[bright_white]}Without this, your Kubernetes configurations and data will not persist across container restarts.${reset_color}"
   echo
   echo "    Example command to run the container with a persistent volume:"
-  echo "    docker run --rm -it -v k8s-home:/k8s -v ${HOME}/ca:/ca -v ${HOME}/kubernetes:/work -p 80:80 ghcr.io/dewab/docker-k8s-tools:latest"
+  echo "    docker run --rm -it -v k8s-home:/k8s -v ${HOME}/ca:/ca -v ${HOME}/kubernetes:/work -p 80:80 ghcr.io/dewab-org/docker-k8s-tools:latest"
   echo
   persistent_volume=false
 fi
