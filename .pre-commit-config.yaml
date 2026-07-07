@@ -25,3 +25,8 @@ repos:
       - id: shellcheck
         files: \.sh$
         args: [ "--exclude=SC2086", "--exclude=SC2054", "--exclude=SC2034" ]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
