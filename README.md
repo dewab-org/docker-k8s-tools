@@ -1,6 +1,7 @@
 # 🧰 Kubernetes CLI Toolkit
 
-[![Build and Push to GHCR](https://github.com/dewab-org/docker-k8s-tools/actions/workflows/build.yaml/badge.svg)](https://github.com/dewab-org/docker-k8s-tools/actions/workflows/build.yaml)
+[![CI](https://github.com/dewab-org/docker-k8s-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/dewab-org/docker-k8s-tools/actions/workflows/ci.yml)
+[![Docker](https://github.com/dewab-org/docker-k8s-tools/actions/workflows/docker.yml/badge.svg)](https://github.com/dewab-org/docker-k8s-tools/actions/workflows/docker.yml)
 
 ---
 
@@ -36,6 +37,30 @@ It is designed to simplify tool setup for administrators—especially those work
 
 ---
 
+## 📍 Where the image is published
+
+Every build publishes the same image to both registries from a single build:
+
+| Registry | Reference |
+|----------|-----------|
+| Harbor (homelab) | `harbor.lab.local/homelab/k8s-cli-toolkit` |
+| GHCR | `ghcr.io/dewab-org/k8s-cli-toolkit` |
+
+Tags are `latest` plus `sha-<commit>` on `main`, `pr-<N>` for pull requests,
+and the semver tags for `v*` releases.
+
+Builds run on the in-cluster `arc-runners` scale set through the estate's
+shared pipeline (`dewab-org/homelab.actions-runner` `build-image.yml`); the
+Harbor robot credential comes from Vault via the runner's ServiceAccount, so
+no registry secret is stored in this repository.
+
+The scheduled Monday rebuild runs with the BuildKit cache disabled on purpose.
+Both Dockerfile stages run `apt-get upgrade` and `generate-env.sh` re-resolves
+every tool to its latest upstream release, so a cache hit would silently keep
+serving stale layers.
+
+---
+
 ## 🚀 Quick Start
 
 ```bash
@@ -45,19 +70,19 @@ docker run --rm -it \
   -v <manifestdir>:/work \
   -v ${HOME}/.kube/config:/kubeconfig \
   -p 80:80 \
-  ghcr.io/dewab-org/docker-k8s-tools:latest
+  ghcr.io/dewab-org/k8s-cli-toolkit:latest
 ```
 
 example:
 
 ```bash
-docker run --rm -it -v k8s-home:/k8s -v ${HOME}/ca:/ca -p 80:80 ghcr.io/dewab-org/docker-k8s-tools:latest
+docker run --rm -it -v k8s-home:/k8s -v ${HOME}/ca:/ca -p 80:80 ghcr.io/dewab-org/k8s-cli-toolkit:latest
 ```
 
 example for Windows:
 
 ```bash
-docker run --rm -it -v k8s-home:/k8s -v C:\kuberenetes\ca:/ca -v C:\kubernetes:/work -p 80:80 ghcr.io/dewab-org/docker-k8s-tools:latest
+docker run --rm -it -v k8s-home:/k8s -v C:\kuberenetes\ca:/ca -v C:\kubernetes:/work -p 80:80 ghcr.io/dewab-org/k8s-cli-toolkit:latest
 ```
 
 ---
@@ -168,7 +193,7 @@ podman machine start
 The command to run the container in podman on Windows might look like this:
 
 ```bash
-podman run --rm -it -v k8s-home:/k8s -v c:\Kubernetes\ca:/ca -v c:\kubernetes:/work -p 80:80 ghcr.io/dewab-org/docker-k8s-tools:latest
+podman run --rm -it -v k8s-home:/k8s -v c:\Kubernetes\ca:/ca -v c:\kubernetes:/work -p 80:80 ghcr.io/dewab-org/k8s-cli-toolkit:latest
 ```
 
 ---

@@ -14,22 +14,43 @@ append_to_github_env() {
   fi
 }
 
+# Authenticate to api.github.com when a token is available. Unauthenticated
+# release lookups are limited to 60/hour per source IP, which a shared CI
+# egress address exhausts quickly - and this script makes 16 of them per run.
+GH_API_TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+
 get_latest_github_release() {
   local repo="$1"
   local attempt=1
   local max_attempts=3
   local delay=10
-  local response
+  local response rc
+  local url="https://api.github.com/repos/${repo}/releases/latest"
 
   while (( attempt <= max_attempts )); do
-    response=$(curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null)
-    if [[ $? -eq 0 && ! "$response" =~ "API rate limit exceeded" && ! "$response" =~ "403 Forbidden" ]]; then
+    # `rc=0; ... || rc=$?` is required: under `set -e` a bare
+    # `response=$(curl ...)` aborts the whole script the moment curl fails,
+    # so the retry loop below would never get a chance to run.
+    rc=0
+    if [[ -n "$GH_API_TOKEN" ]]; then
+      response=$(curl -fsSL \
+        -H "Authorization: Bearer ${GH_API_TOKEN}" \
+        -H "Accept: application/vnd.github+json" \
+        "$url") || rc=$?
+    else
+      response=$(curl -fsSL \
+        -H "Accept: application/vnd.github+json" \
+        "$url") || rc=$?
+    fi
+
+    if (( rc == 0 )) && [[ -n "$response" ]]; then
       echo "$response" | grep '"tag_name":' | sed -E 's/.*"v?([^"]+)".*/\1/'
       return 0
     fi
+
     if (( attempt < max_attempts )); then
-      echo "[WARN] GitHub API returned 403 or error for $repo, attempt $attempt/$max_attempts. Retrying in $delay seconds..." >&2
-      sleep $delay
+      echo "[WARN] GitHub API lookup for $repo failed (curl rc=$rc), attempt $attempt/$max_attempts. Retrying in $delay seconds..." >&2
+      sleep "$delay"
     fi
     ((attempt++))
   done

@@ -4,7 +4,7 @@
 ARG TARGET_OS=${TARGET_OS:-linux}
 ARG TARGET_ARCH=${TARGET_ARCH:-amd64}
 
-FROM debian:bookworm-slim AS builder
+FROM debian:trixie-slim AS builder
 SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 
 ARG TARGET_OS
@@ -130,7 +130,7 @@ RUN strip --strip-unneeded /usr/local/bin/*
 # ================================
 # Final Image
 # ================================
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 
 ARG IMAGE_VERSION
@@ -181,7 +181,7 @@ RUN cat /tmp/zshrc >> /etc/zsh/zshrc && \
         mv /tmp/kubectl-vsphere /usr/local/bin/kubectl-vsphere && chmod +x /usr/local/bin/kubectl-vsphere; \
     else \
         rm -f /tmp/kubectl-vsphere; \
-    fi 
+    fi
     # && \
     # chown -R k8suser:k8s /k8s
 
@@ -189,9 +189,12 @@ ENV PATH="/usr/local/bin:$PATH"
 ENV HOME=/k8s
 WORKDIR /work
 
+# Not a listening service: the pinniped / kubectl-vsphere login flow needs a
+# local callback port, which the documented `docker run -p 80:80` maps.
+EXPOSE 80
+
 # RUN chown -R k8suser:k8s /usr/local/share/ca-certificates /etc/ssl/certs
 
-EXPOSE 80
 
 # USER k8suser
 
