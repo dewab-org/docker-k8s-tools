@@ -1,0 +1,164 @@
+name: Docker
+
+# Builds on the in-cluster arc-runners scale set through the estate's shared
+# image pipeline (dewab-org/homelab.actions-runner build-image.yml), which
+# publishes one build to both harbor.lab.local/homelab/k8s-cli-toolkit and
+# ghcr.io/dewab-org/k8s-cli-toolkit. The Harbor robot credential comes from
+# Vault via the runner's ServiceAccount, so no registry secret is stored here.
+#
+# Every event publishes, pull requests included (as pr-<N>), because the
+# shared pipeline always pushes.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  # Weekly no-cache rebuild of main. Both stages run `apt-get upgrade` and
+  # generate-env.sh re-resolves every tool to its latest upstream release, so
+  # a BuildKit cache hit would keep serving months-old layers - which is
+  # exactly how the previous pipeline accumulated 54 fixable Debian CVEs
+  # despite running weekly.
+  schedule:
+    - cron: "41 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  meta:
+    runs-on: arc-runners
+    outputs:
+      version: ${{ steps.split.outputs.version }}
+      extra_tags: ${{ steps.split.outputs.extra_tags }}
+      sha_tag: ${{ steps.split.outputs.sha_tag }}
+      build_args: ${{ steps.versions.outputs.build_args }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # No `images:` - the shared pipeline adds the registry prefixes, so only
+      # bare tags are wanted here.
+      - name: Compute tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Split into primary and extra tags
+        id: split
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          extra="$(printf '%s\n' "$TAGS" | grep -vxF "$VERSION" | grep . || true)"
+          sha_tag="$(printf '%s\n' "$TAGS" | grep -m1 '^sha-')"
+          {
+            echo "version=$VERSION"
+            echo "sha_tag=$sha_tag"
+            echo "extra_tags<<EOF"
+            echo "$extra"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "primary: $VERSION"; echo "extra:"; echo "$extra"
+
+      # generate-env.sh resolves each tool to its latest upstream release and
+      # appends KEY=VALUE lines to $GITHUB_ENV. Pointing GITHUB_ENV at a temp
+      # file turns it into the `build_args` input the shared pipeline wants,
+      # without the script needing to know about either.
+      - name: Resolve upstream tool versions
+        id: versions
+        env:
+          # Authenticated api.github.com calls, so release lookups do not hit
+          # the 60/hour unauthenticated limit from the cluster's egress IP.
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          raw="${RUNNER_TEMP}/tool-versions.env"
+          : > "$raw"
+          GITHUB_ENV="$raw" ./generate-env.sh
+          # The script's own IMAGE_VERSION is the commit SHA; the image label
+          # should carry the tag humans deploy instead.
+          args="$(grep -v '^IMAGE_VERSION=' "$raw")"
+          args="${args}"$'\n'"IMAGE_VERSION=${VERSION}"
+          {
+            echo "build_args<<EOF"
+            echo "$args"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "$args"
+
+  build:
+    needs: meta
+    permissions:
+      contents: read
+      packages: write
+    uses: dewab-org/homelab.actions-runner/.github/workflows/build-image.yml@d589008961ee7757f0c1b08b19aa8e7a24009feb
+    with:
+      image_name: k8s-cli-toolkit
+      version: ${{ needs.meta.outputs.version }}
+      extra_tags: ${{ needs.meta.outputs.extra_tags }}
+      build_args: ${{ needs.meta.outputs.build_args }}
+      harbor_project: homelab
+      no_cache: ${{ github.event_name == 'schedule' }}
+
+  scan:
+    needs: [meta, build]
+    runs-on: arc-runners
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    env:
+      IMAGE_REF: ghcr.io/${{ github.repository_owner }}/k8s-cli-toolkit:${{ needs.meta.outputs.sha_tag }}
+      TRIVY_USERNAME: ${{ github.actor }}
+      TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      # Full report: OS packages and the ~20 bundled Go binaries alike.
+      - name: Scan with Trivy (report)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_REF }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+
+      - name: Upload Trivy results to Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+        continue-on-error: true
+
+      # Gate on Debian packages only (`vuln-type: os`, which trivy-action maps
+      # to TRIVY_PKG_TYPES). This image ships upstream release binaries for
+      # k9s, helm, kapp and friends; those carry HIGH findings in the Go
+      # stdlib they were compiled against, which only the upstream project can
+      # fix by cutting a new release. Gating on them would leave this pipeline
+      # permanently red while telling us nothing actionable - they stay visible
+      # in the Security tab via the SARIF report above. OS findings with a
+      # fixed version, by contrast, are always ours to fix: rebuild no-cache.
+      - name: Fail on fixable HIGH/CRITICAL OS findings
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_REF }}
+          format: table
+          severity: CRITICAL,HIGH
+          vuln-type: os
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true

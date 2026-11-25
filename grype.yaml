@@ -1,9 +1,0 @@
-# grype.yaml
-ignore:
-  - vulnerability: .*
-    fix-state: "wont-fix"
-fail-on-severity: medium
-severity:
-  - medium
-  - high
-  - critical
