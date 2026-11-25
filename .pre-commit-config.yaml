@@ -15,7 +15,16 @@ repos:
   - repo: https://github.com/hadolint/hadolint
     rev: v2.14.0
     hooks:
-      - id: hadolint
+      # hadolint-docker, not hadolint: the latter is a `language: system` hook
+      # that needs the binary already on PATH, so it passes on a laptop with
+      # `brew install hadolint` and fails on a clean runner with
+      # "Executable `hadolint` not found".
+      #
+      # Note `rev` pins only the hook definition - the hook's entry is the
+      # untagged `ghcr.io/hadolint/hadolint`, so the linter itself is whatever
+      # :latest currently is. Hence the SC30xx ignores below, which a pinned
+      # v2.14.0 would not need.
+      - id: hadolint-docker
         files: ^Dockerfile$
         # SC3059/SC3060 flag bash-only `${v^}` and `${v/a/b}` as non-POSIX.
         # Both stages declare `SHELL ["/bin/bash", ...]`, so bash is what
