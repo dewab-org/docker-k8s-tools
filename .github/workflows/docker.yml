@@ -157,6 +157,9 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.IMAGE_REF }}
+          # Trivy's 5m default is too short for `all`, the largest variant:
+          # analysing its layers (secret scanning especially) timed out.
+          timeout: 15m
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
@@ -184,6 +187,7 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.IMAGE_REF }}
+          timeout: 15m
           format: table
           severity: CRITICAL,HIGH
           vuln-type: os
