@@ -127,11 +127,18 @@ ARG AZURE_CLI_VERSION
 # set either back to yes/true in the container to opt in.
 ENV AZURE_CORE_COLLECT_TELEMETRY=false \
     AZD_COLLECT_TELEMETRY=no
+#
+# The venv is seeded with Debian's bundled pip, which lags upstream security
+# fixes, so pip is upgraded first; it stays in the venv because
+# `az extension add` uses it. python3-venv and the stale pip/setuptools wheels
+# it carries are only needed to create the venv, so they are purged after.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends python3 python3-venv && \
-    rm -rf /var/lib/apt/lists/* && \
     python3 -m venv /opt/az && \
+    /opt/az/bin/pip install --no-cache-dir --disable-pip-version-check --upgrade pip && \
     /opt/az/bin/pip install --no-cache-dir --disable-pip-version-check "azure-cli==${AZURE_CLI_VERSION:?}" && \
+    apt-get purge -y --auto-remove python3-venv python3.13-venv python3-pip-whl python3-setuptools-whl && \
+    rm -rf /var/lib/apt/lists/* && \
     ln -s /opt/az/bin/az /opt/az/bin/register-python-argcomplete /usr/local/bin/ && \
     find /opt/az -name __pycache__ -type d -prune -exec rm -rf {} +
 

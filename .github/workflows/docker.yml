@@ -160,6 +160,9 @@ jobs:
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
+          # Without this, trivy-action ignores `severity` for SARIF and uploads
+          # every finding down to LOW to the Security tab.
+          limit-severities-for-sarif: true
           exit-code: "0"
 
       - name: Upload Trivy results to Security tab
