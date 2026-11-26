@@ -22,6 +22,7 @@ done
 # Generate .env.docker using generate-env.sh
 # ────────────────────────────────────────────────
 GITHUB_ENV="$(mktemp)"
+trap 'rm -f "$GITHUB_ENV"' EXIT
 export GITHUB_ENV
 export GITHUB_SHA="local"
 ./generate-env.sh
@@ -44,11 +45,20 @@ done < "$GITHUB_ENV"
 IMAGE_VERSION=$(awk -F= '/^IMAGE_VERSION=/{print $2}' "$GITHUB_ENV" | tr -d '"')
 IMAGE_NAME="dewab-org/k8s-cli-toolkit"
 
+# VARIANT picks the Dockerfile target: standard, tanzu, azure, openshift or
+# all (default). Tags follow CI: `all` is :latest, the others are :<variant>.
+VARIANT="${VARIANT:-all}"
+case "$VARIANT" in
+  all) PRIMARY_TAG=latest; TAG_SUFFIX="" ;;
+  standard|tanzu|azure|openshift) PRIMARY_TAG="$VARIANT"; TAG_SUFFIX="-$VARIANT" ;;
+  *) echo "Unknown VARIANT: $VARIANT" >&2; exit 1 ;;
+esac
+
 # ────────────────────────────────────────────────
 # Output info
 # ────────────────────────────────────────────────
-echo "🔨 Building image: ${IMAGE_NAME}:latest"
-[[ -n "$IMAGE_VERSION" ]] && echo "🧭 Also tagging: ${IMAGE_NAME}:${IMAGE_VERSION}"
+echo "🔨 Building image: ${IMAGE_NAME}:${PRIMARY_TAG} (variant: ${VARIANT})"
+[[ -n "$IMAGE_VERSION" ]] && echo "🧭 Also tagging: ${IMAGE_NAME}:${IMAGE_VERSION}${TAG_SUFFIX}"
 echo "💡 Build args:"
 for arg in "${BUILD_ARGS[@]}"; do
   echo "  - ${arg#--build-arg }"
@@ -58,16 +68,18 @@ echo
 # ────────────────────────────────────────────────
 # Construct build command
 # ────────────────────────────────────────────────
+# PLATFORMS=linux/amd64,linux/arm64 builds both (needs --push, or Docker's
+# containerd image store for --load).
 BUILD_CMD=(
-#   --platform linux/amd64,linux/arm64
   docker buildx build
-  --platform linux/amd64
+  --platform "${PLATFORMS:-linux/amd64}"
+  --target "$VARIANT"
   "${BUILD_ARGS[@]}"
-  -t "${IMAGE_NAME}:latest"
+  -t "${IMAGE_NAME}:${PRIMARY_TAG}"
 )
 
 if [[ -n "$IMAGE_VERSION" ]]; then
-  BUILD_CMD+=(-t "${IMAGE_NAME}:${IMAGE_VERSION}")
+  BUILD_CMD+=(-t "${IMAGE_NAME}:${IMAGE_VERSION}${TAG_SUFFIX}")
 fi
 
 if [[ "$PUSH_IMAGE" == true ]]; then

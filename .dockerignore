@@ -1,0 +1,4 @@
+# The Dockerfile COPYs only from files/; keep everything else (notably the
+# 29 MB .git history) out of the build context.
+*
+!files/

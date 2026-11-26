@@ -13,7 +13,7 @@ repos:
       - id: detect-private-key
 
   - repo: https://github.com/hadolint/hadolint
-    rev: v2.14.0
+    rev: v2.15.1
     hooks:
       # hadolint-docker, not hadolint: the latter is a `language: system` hook
       # that needs the binary already on PATH, so it passes on a laptop with
@@ -26,10 +26,7 @@ repos:
       # v2.14.0 would not need.
       - id: hadolint-docker
         files: ^Dockerfile$
-        # SC3059/SC3060 flag bash-only `${v^}` and `${v/a/b}` as non-POSIX.
-        # Both stages declare `SHELL ["/bin/bash", ...]`, so bash is what
-        # actually runs and the portability warnings are false positives.
-        args: [ "--ignore=DL3018", "--ignore=SC2016", "--ignore=DL3008", "--ignore=SC2015", "--ignore=DL3059", "--ignore=SC3059", "--ignore=SC3060" ]
+        args: [ "--ignore=DL3018", "--ignore=SC2016", "--ignore=DL3008", "--ignore=SC2015", "--ignore=DL3059" ]
 
   - repo: https://github.com/koalaman/shellcheck-precommit
     rev: v0.11.0

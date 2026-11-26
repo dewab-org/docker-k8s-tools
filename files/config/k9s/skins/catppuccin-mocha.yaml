@@ -1,0 +1,81 @@
+k9s:
+  body:
+    fgColor: '#cdd6f4'   # text
+    bgColor: '#1e1e2e'   # base
+    logoColor: '#cba6f7' # mauve
+  prompt:
+    fgColor: '#cdd6f4'      # text
+    bgColor: '#1e1e2e'      # base
+    suggestColor: '#cba6f7' # mauve
+  info:
+    fgColor: '#89b4fa'    # blue
+    sectionColor: '#cdd6f4' # text
+  dialog:
+    fgColor: '#cdd6f4'           # text
+    bgColor: '#181825'           # mantle
+    buttonFgColor: '#1e1e2e'     # base
+    buttonBgColor: '#89b4fa'     # blue
+    buttonFocusFgColor: '#1e1e2e' # base
+    buttonFocusBgColor: '#cba6f7' # mauve
+    labelFgColor: '#fab387'      # peach
+    fieldFgColor: '#cdd6f4'      # text
+  frame:
+    border:
+      fgColor: '#313244'    # surface0
+      focusColor: '#cba6f7' # mauve
+    menu:
+      fgColor: '#cdd6f4'    # text
+      keyColor: '#89b4fa'   # blue
+      numKeyColor: '#cba6f7' # mauve
+    crumbs:
+      fgColor: '#1e1e2e'    # base
+      bgColor: '#89b4fa'    # blue
+      activeColor: '#cba6f7' # mauve
+    status:
+      newColor: '#a6e3a1'       # green
+      modifyColor: '#89b4fa'    # blue
+      addColor: '#a6e3a1'       # green
+      pendingColor: '#fab387'   # peach
+      errorColor: '#f38ba8'     # red
+      highlightColor: '#f5c2e7' # pink
+      killColor: '#f38ba8'      # red
+      completedColor: '#6c7086' # overlay0
+    title:
+      fgColor: '#cdd6f4'       # text
+      bgColor: '#1e1e2e'       # base
+      highlightColor: '#cba6f7' # mauve
+      counterColor: '#89b4fa'  # blue
+      filterColor: '#a6e3a1'   # green
+  views:
+    charts:
+      bgColor: default
+      defaultDialColors:
+        - '#89b4fa' # blue
+        - '#f38ba8' # red
+      defaultChartColors:
+        - '#89b4fa' # blue
+        - '#f38ba8' # red
+    table:
+      fgColor: '#cdd6f4' # text
+      bgColor: '#1e1e2e' # base
+      markColor: '#fab387' # peach
+      header:
+        fgColor: '#89b4fa'   # blue
+        bgColor: '#1e1e2e'   # base
+        sorterColor: '#cba6f7' # mauve
+    xray:
+      fgColor: '#cdd6f4'    # text
+      bgColor: '#181825'    # mantle
+      cursorColor: '#313244' # surface0
+      graphicColor: '#89b4fa' # blue
+      showIcons: false
+    yaml:
+      keyColor: '#89b4fa'   # blue
+      colonColor: '#cba6f7' # mauve
+      valueColor: '#cdd6f4' # text
+    logs:
+      fgColor: '#cdd6f4' # text
+      bgColor: '#1e1e2e' # base
+      indicator:
+        fgColor: '#cdd6f4' # text
+        bgColor: '#89b4fa' # blue

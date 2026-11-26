@@ -1,103 +1,186 @@
-# ~/.zshrc for Kubernetes CLI Toolkit
 
-# ----- Configure XDG -----
-export XDG_CONFIG_HOME=${HOME}/.config  XDG_CACHE_HOME=${HOME}/.cache XDG_DATA_HOME=${HOME}/.local/share XDG_STATE_HOME=${HOME}/.local/state
-for XDG_PATH in $XDG_CONFIG_HOME $XDG_CACHE_HOME $XDG_DATA_HOME $XDG_STATE_HOME
-do
+# ======================================
+# Kubernetes CLI Toolkit
+# ======================================
+# Appended to /etc/zsh/zshrc. The interactive setup follows Daniel's profile
+# (dewab-org/profile): Starship prompt, Catppuccin Mocha theming, fzf and
+# fzf-tab, zoxide, eza and kubecolor. The standard tools are in every variant
+# (TOOLKIT_VARIANT); Tanzu, Azure and OpenShift sections load only when their
+# tools are installed.
+
+TOOLKIT_SHARE=/usr/local/share/k8s-cli-toolkit
+TOOLKIT_MANIFEST=/etc/k8s-cli-toolkit/manifest.json
+
+# ----- XDG -----
+export XDG_CONFIG_HOME=${HOME}/.config XDG_CACHE_HOME=${HOME}/.cache \
+       XDG_DATA_HOME=${HOME}/.local/share XDG_STATE_HOME=${HOME}/.local/state
+for XDG_PATH in $XDG_CONFIG_HOME $XDG_CACHE_HOME $XDG_DATA_HOME $XDG_STATE_HOME "${XDG_CACHE_HOME}/zsh"; do
   [ -d "${XDG_PATH}" ] || mkdir -m 0700 -p "${XDG_PATH}"
 done
+unset XDG_PATH
 
-# ----- Enable Completion -----
-fpath=(/usr/local/share/zsh/site-functions $fpath)
-autoload -Uz compinit promptinit
-compinit -C
-promptinit
-
-# ----- Add custom completions -----
-source <(tmc-get-kubeconfigs completion zsh)
-source <(tkgs-login completion zsh)
-
-# ----- Autosuggestions -----
-if [ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then
-  source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-else
-  echo "⚠️ zsh-autosuggestions not found, skipping."
-fi
-
-# ----- Syntax Highlighting -----
-if [ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
-  source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-else
-  echo "⚠️ zsh-syntax-highlighting not found, skipping."
-fi
-
-# ----- FZF Tab Completion -----
-if [ -f /usr/local/share/fzf-tab/fzf-tab.plugin.zsh ]; then
-  source /usr/local/share/fzf-tab/fzf-tab.plugin.zsh
-else
-  echo "⚠️ fzf-tab plugin not found, skipping."
-fi
-
-# ----- Direnv Integration -----
-if command -v direnv >/dev/null 2>&1; then
-  eval "$(direnv hook zsh)"
-  echo "ℹ️  direnv loaded for shell environment."
-else
-  echo "⚠️ direnv not found, skipping integration."
-fi
-
-# ----- Kubecolor -----
-if [ -f /usr/local/bin/kubecolor ]; then
-  alias kubectl='kubecolor'
-  compdef kubecolor=kubectl
-  echo "ℹ️  kubecolor enabled for kubectl."
-else
-  echo "⚠️ kubecolor not found, skipping integration."
-fi
-
-# ----- Enable Powerlevel10k -----
-# Custom Powerlevel10k segment to show Tanzu context
-function prompt_tanzu() {
-  local context=$(tanzu context current --short 2>/dev/null | head -n1)
-  [[ -z "$context" || "$context" == "There is no active context" ]] && return
-  p10k segment -b red -f white -i ⚙ -t "$context"
+# toolkit-config <name>: the user's ~/.config/<name> when present, otherwise
+# the image default (which then tracks image updates).
+toolkit-config() {
+  if [[ -r "${XDG_CONFIG_HOME}/$1" ]]; then
+    print -r -- "${XDG_CONFIG_HOME}/$1"
+  else
+    print -r -- "${TOOLKIT_SHARE}/config/$1"
+  fi
 }
 
-if [ -d /usr/local/share/powerlevel10k ]; then
-  POWERLEVEL9K_DISABLE_CONFIGURATION_WIZARD=true
-  source /usr/local/share/powerlevel10k/powerlevel10k.zsh-theme
-  # ----- Run Powerlevel10k Theme -----
-  if [ -f /usr/local/share/powerlevel10k/p10k.zsh ]; then
-    source /usr/local/share/powerlevel10k/p10k.zsh
-  else
-    echo "⚠️ Powerlevel10k theme not found, skipping."
-  fi
-else
-  echo "⚠️ Powerlevel10k theme not found, skipping."
-fi
-
-# ----- Color Setup -----
-autoload -U colors && colors
-
 # ----- Path -----
-export PATH="/k8s/bin:$PATH"
+typeset -U path
+# krew installs kubectl plugins into the persistent home volume.
+path=(/k8s/bin "${KREW_ROOT:-${HOME}/.krew}/bin" $path)
+
+# ----- Shell options -----
+setopt auto_cd correct extended_history hist_ignore_dups hist_reduce_blanks \
+       inc_append_history share_history nonomatch prompt_subst
 
 # ----- History -----
 export HISTFILE=${HOME}/.zsh_history
 export HISTSIZE=10000
 export SAVEHIST=10000
-setopt INC_APPEND_HISTORY HIST_IGNORE_DUPS HIST_REDUCE_BLANKS SHARE_HISTORY
+export HISTORY_IGNORE="(ls|ll|l.|bg|fg|clear|exit|history|cd|df)"
 
-# ----- Aliases -----
+# ----- Environment -----
+export EDITOR=vim
+export CLICOLOR=true
+# -R keeps colored git/kubectl output readable in the pager; -X leaves the
+# page on screen after quitting.
+export LESS="-RX"
+export LESSHISTFILE="${XDG_STATE_HOME}/less_history"
+
+# ----- Completion -----
+# The dump is keyed to the image version: completions are generated at build
+# time, and a dump cached on the persistent /k8s volume would otherwise hide
+# the ones a newer image adds.
+fpath=(/usr/local/share/zsh/site-functions $fpath)
+zmodload zsh/complist
+autoload -Uz compinit colors is-at-least edit-command-line add-zsh-hook add-zle-hook-widget
+compinit -i -d "${XDG_CACHE_HOME}/zsh/zcompdump-${ZSH_VERSION}-${K8S_TOOLKIT_VERSION:-dev}"
+colors
+
+zstyle ':completion:*' cache-path "${XDG_CACHE_HOME}/zsh/zcompcache"
+zstyle ':completion:*' menu select
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*:descriptions' format '%B%d%b'
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+zstyle ':completion:*' matcher-list '' 'm:{[:lower:][:upper:]}={[:upper:][:lower:]}' '+l:|?=** r:|?=**'
+zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#) ([0-9a-z-]#)*=01;34=0=01'
+
+(( $+commands[tmc-get-kubeconfigs] )) && source <(tmc-get-kubeconfigs completion zsh)
+(( $+commands[tkgs-login] )) && source <(tkgs-login completion zsh)
+# az ships a bash completion script, which zsh runs through bashcompinit.
+if [[ -r /opt/az/bin/az.completion.sh ]]; then
+  autoload -Uz bashcompinit && bashcompinit
+  source /opt/az/bin/az.completion.sh
+fi
+
+# ----- Key bindings -----
+bindkey -e
+bindkey '^U' backward-kill-line
+zle -N edit-command-line
+bindkey '^Xe' edit-command-line
+bindkey ' ' magic-space
+
+# ----- Catppuccin Mocha colors -----
+# 256-color approximations of the profile's truecolor values: Debian's jq 1.7
+# rejects specs that long, and the eighth (object key) field 1.7.1 added.
+# null=overlay0 false=red true=green numbers=peach strings=green arrays=blue objects=mauve
+export JQ_COLORS="38;5;60:38;5;211:38;5;151:38;5;216:38;5;151:38;5;111:38;5;183"
+export EZA_COLORS="di=38;2;116;199;236:ex=38;2;166;227;161:ln=38;2;148;226;213:or=38;2;243;139;168;1:da=38;2;147;153;178:sn=38;2;205;214;244:sb=38;2;147;153;178:uu=38;2;205;214;244:ga=38;2;166;227;161:gm=38;2;249;226;175:gd=38;2;243;139;168:gv=38;2;203;166;247:gt=38;2;250;179;135"
+export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#6c7086'
+
+# ----- fzf -----
+source /usr/local/share/fzf/fzf.zsh
+export FZF_DEFAULT_OPTS="\
+--height 50% --layout=reverse --border --info=inline \
+--bind 'ctrl-/:toggle-preview,ctrl-u:preview-half-page-up,ctrl-d:preview-half-page-down' \
+--color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 \
+--color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc \
+--color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 \
+--color=selected-bg:#45475a,border:#6c7086,label:#cdd6f4"
+export FZF_CTRL_T_OPTS="--preview 'eza -1 --color=always --icons {} 2>/dev/null || head -200 {}' --preview-window=right:55%:wrap"
+export FZF_ALT_C_OPTS="--preview 'eza -1 --color=always --icons {}' --preview-window=right:45%"
+
+# fzf-tab must load after compinit and before the widget-wrapping plugins.
+source /usr/local/share/fzf-tab/fzf-tab.plugin.zsh
+zstyle ':fzf-tab:*' use-fzf-default-opts yes
+zstyle ':fzf-tab:*' switch-group '<' '>'
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always --icons $realpath 2>/dev/null'
+zstyle ':fzf-tab:complete:*:*' fzf-preview '
+  if [[ -d $realpath ]]; then eza -1 --color=always --icons $realpath 2>/dev/null
+  elif [[ -f $realpath ]]; then head -200 $realpath
+  else echo $realpath; fi'
+
+# ----- direnv / zoxide -----
+eval "$(direnv hook zsh)"
+eval "$(zoxide init zsh)"
+alias cd='z'
+zf() {
+  local dir
+  dir=$(zoxide query -l | fzf --prompt='zoxide> ' --preview='eza -1 --color=always --icons {}' --preview-window=down:40%) || return
+  cd "${dir}"
+}
+
+# ----- Kubernetes -----
+export KUBECOLOR_CONFIG="$(toolkit-config kubecolor.yaml)"
+alias kubectl='kubecolor'
+compdef kubecolor=kubectl
 alias k=kubectl
 alias ku='kubectl config use-context'
 alias kctx=kubectx
+alias kns=kubens
 alias h=helm
-alias t=tanzu
-alias l.='eza --list-dirs .* --icons --color-scale'
-alias la='eza --classify --icons --color-scale --all'
-alias ll='eza --classify --long --icons --color-scale --all'
-alias ls='eza --icons --color-scale'
+(( $+commands[tanzu] )) && alias t=tanzu
+
+# ----- eza -----
+_eza_flags='--classify=auto --icons=auto --color-scale=all'
+alias ls="eza ${_eza_flags}"
+alias ll="eza ${_eza_flags} --long --all"
+alias l.="eza ${_eza_flags} --list-dirs -- .*"
+alias la="eza ${_eza_flags} --all"
+alias lr="eza ${_eza_flags} --long --all --sort=newest"
+alias lR="eza ${_eza_flags} --long --all --recurse"
+alias tree="eza ${_eza_flags} --tree"
+unset _eza_flags
+
+alias versions='jq . "${TOOLKIT_MANIFEST}"'
+
+# ----- Prompt: Starship -----
+export STARSHIP_CONFIG="$(toolkit-config starship.toml)"
+# The container's hostname is a random ID, so name the toolkit instead.
+export STARSHIP_HOST_LOCAL=k8s-cli-toolkit
+eval "$(starship init zsh)"
+
+# Show the Kubernetes (and Tanzu) context only while a Kubernetes-related
+# command is being typed.
+_starship_kubernetes_command_state() {
+  emulate -L zsh
+  setopt extended_glob
+  local command_pattern='(k|kube[^[:space:]]*|k9s|kctx|kns|ku|helm|h|helmfile|kustomize|stern|set-kubeconfig|t|tanzu|velero|clusterctl|kapp|kctrl|kbld|imgpkg|vendir|ytt|tkgs-login|tmc-get-kubeconfigs|oc|odo|tkn)'
+  if [[ "${BUFFER}" =~ "(^[[:space:]]*|[;&|()][[:space:]]*)(sudo[[:space:]]+|command[[:space:]]+|env[[:space:]]+)*${command_pattern}([[:space:]]|$)" ]]; then
+    if [[ -z "${STARSHIP_KUBERNETES_ACTIVE:-}" ]]; then
+      export STARSHIP_KUBERNETES_ACTIVE=1
+      zle .reset-prompt
+    fi
+  elif [[ -n "${STARSHIP_KUBERNETES_ACTIVE:-}" ]]; then
+    unset STARSHIP_KUBERNETES_ACTIVE
+    zle .reset-prompt
+  fi
+}
+_starship_kubernetes_command_reset() { unset STARSHIP_KUBERNETES_ACTIVE; }
+add-zle-hook-widget line-pre-redraw _starship_kubernetes_command_state
+add-zle-hook-widget line-init _starship_kubernetes_command_reset
+add-zle-hook-widget line-finish _starship_kubernetes_command_reset
+
+# ----- Plugins (syntax highlighting must load last) -----
+# Bind widgets once instead of re-wrapping every widget on each prompt.
+ZSH_AUTOSUGGEST_MANUAL_REBIND=1
+source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 # ----- Functions -----
 set-kubeconfig() {
@@ -127,10 +210,11 @@ set-kubeconfig() {
 }
 
 # ----- Tanzu Init Check -----
+if (( $+commands[tanzu] )); then
 tanzu_needs_init() {
   local config_yaml="$HOME/.config/tanzu/config.yaml"
   [[ ! -s "$config_yaml" ]] && return 0
-  local json=$(jq -c . "$config_yaml" 2>/dev/null)
+  local json=$(yq -o json . "$config_yaml" 2>/dev/null)
   [[ "$json" == "{}" ]] && return 0
   return 1
 }
@@ -152,48 +236,72 @@ tanzu_init() {
   done
   echo "🎉 Tanzu plugins initialized successfully."
 }
+fi
 
 # ----- Banner and Hints -----
 banner() {
   echo
   cat /banner.txt 2>/dev/null
   echo
-  echo "${fg[blue]}Welcome to the Kubernetes CLI Toolkit!${reset_color}"
-  echo "${fg[blue]}Tools like kubectl, helm, ytt, kapp, k9s and more are ready to go.${reset_color}"
+  echo "${fg[blue]}Welcome to the Kubernetes CLI Toolkit ${fg[yellow]}(${TOOLKIT_VARIANT:-all})${fg[blue]}!${reset_color}"
+  echo "${fg[blue]}kubectl, helm, k9s and more are ready to go. Type ${fg[yellow]}versions${fg[blue]} for the full list.${reset_color}"
   echo
   echo " ${fg[white]} ** ${fg[blue]}The ${fg[yellow]}'H'${fg[blue]} in ${fg[yellow]}Kubernetes${fg[blue]} is short for ${fg[yellow]}'Happiness'${fg[white]} ** ${reset_color}"
   echo
 }
 
 hints() {
-  echo "\n${fg[blue]}Need help with Tanzu contexts?${reset_color}"
-  echo "${fg[bright_white]}>${fg[cyan]} tanzu tmc context create <context-name> -e <server> -i pinniped${reset_color}"
-  echo "${fg[bright_white]}>${fg[cyan]} tanzu context create <context-name> -e <server> -i pinniped${reset_color}"
-  echo
-  echo "${fg[blue]}Login to vSphere Supervisor clusters with:${reset_color}"
-  echo "${fg[bright_white]}>${fg[cyan]} kubectl vsphere login --server <url> --vsphere-username <user> --insecure-skip-tls-verify${reset_color}"
+  _hint() { echo "${fg[bright_white]}>${fg[cyan]} $1${reset_color}"; }
   echo
   echo "${fg[blue]}To quickly and interactively change your kubernetes context or namespace:${reset_color}"
-  echo "${fg[bright_white]}>${fg[cyan]} kubectx ${reset_color}"
-  echo "${fg[bright_white]}>${fg[cyan]} kubeens ${reset_color}"
+  _hint "kubectx${fg[white]} (kctx)"
+  _hint "kubens${fg[white]} (kns)"
   echo
-  echo "${fg[blue]}Alternatively, you can interactively switch kubernetes context or namespace using:${reset_color}"
-  echo "${fg[bright_white]}>${fg[cyan]} switch ${reset_color}"
-  echo "${fg[bright_white]}>${fg[cyan]} switch ns ${reset_color}"
+  echo "${fg[blue]}To tail logs across pods, or install kubectl plugins:${reset_color}"
+  _hint "stern <pod-query>"
+  _hint "kubectl krew install <plugin>"
   echo
-  echo "${fg[blue]}To add all TMC-managed workload clusters to your ~/.kube/config:${reset_color}"
-  echo "${fg[bright_white]}>${fg[cyan]} tmc-get-kubeconfigs ${reset_color}"
+  if (( $+commands[tanzu] )); then
+    echo "${fg[blue]}Need help with Tanzu contexts?${reset_color}"
+    _hint "tanzu tmc context create <context-name> -e <server> -i pinniped"
+    _hint "tanzu context create <context-name> -e <server> -i pinniped"
+    echo
+    if (( $+commands[kubectl-vsphere] )); then
+      echo "${fg[blue]}Login to vSphere Supervisor clusters with:${reset_color}"
+      _hint "kubectl vsphere login --server <url> --vsphere-username <user> --insecure-skip-tls-verify"
+      echo
+    fi
+    echo "${fg[blue]}To add all TMC-managed workload clusters to your ~/.kube/config:${reset_color}"
+    _hint "tmc-get-kubeconfigs"
+    echo
+    echo "${fg[blue]}To log into TKGS (Tanzu for vSphere, vSphere Supervisor) clusters defined in ~/.config/tkgs-login/config.yaml:${reset_color}"
+    _hint "tkgs-login"
+    echo
+  fi
+  if (( $+commands[az] )); then
+    echo "${fg[blue]}To sign in to Azure and fetch an AKS kubeconfig that uses your Entra ID login:${reset_color}"
+    _hint "az login --use-device-code"
+    _hint "az aks get-credentials -g <resource-group> -n <cluster>"
+    _hint "kubelogin convert-kubeconfig -l azurecli"
+    echo
+  fi
+  if (( $+commands[oc] )); then
+    echo "${fg[blue]}To log in to an OpenShift cluster:${reset_color}"
+    _hint "oc login --web <api-url>"
+    _hint "oc login <api-url> -u <user>"
+    echo
+  fi
+  echo "${fg[blue]}To list the bundled tool versions:${reset_color}"
+  _hint "versions"
   echo
-  echo "${fg[blue]}To log into TKGS (Tanzu for vSphere, vSphere Supervisor) clusters defined in ~/.config/tkgs-login/config.yaml:${reset_color}"
-  echo "${fg[bright_white]}>${fg[cyan]} tkgs-login ${reset_color}"
-  echo
+  unfunction _hint
 }
 
 # ----- Run banner and init Tanzu -----
 banner
 
 # ----- Check for persistent volume -----
-if grep -q '/k8s' /proc/self/mountinfo; then
+if grep -q ' /k8s ' /proc/self/mountinfo; then
   echo "✅ Persistent volume /k8s is mounted."
   persistent_volume=true
 else
@@ -202,12 +310,14 @@ else
   echo "    ${fg[bright_white]}Without this, your Kubernetes configurations and data will not persist across container restarts.${reset_color}"
   echo
   echo "    Example command to run the container with a persistent volume:"
-  echo "    docker run --rm -it -v k8s-home:/k8s -v ${HOME}/ca:/ca -v ${HOME}/kubernetes:/work -p 80:80 ghcr.io/dewab-org/k8s-cli-toolkit:latest"
+  echo "    docker run --rm -it -v k8s-home:/k8s -v \${HOME}/ca:/ca -v \${HOME}/kubernetes:/work -p 80:80 ghcr.io/dewab-org/k8s-cli-toolkit:${TOOLKIT_VARIANT/#all/latest}"
   echo
   persistent_volume=false
 fi
 
-if tanzu_needs_init; then
+if (( ! $+commands[tanzu] )); then
+  :
+elif tanzu_needs_init; then
   if [ "$persistent_volume" = true ]; then
     tanzu_init
   else

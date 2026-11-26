@@ -1,0 +1,552 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# No leading blank line before the prompt: keeps iTerm2's shell-integration
+# prompt mark sitting cleanly at the prompt start instead of on a blank line.
+add_newline = false
+
+# Allow longer directory scans before giving up (default 30ms); avoids the
+# "Scanning current directory timed out" warning in busy dirs like /tmp.
+scan_timeout = 100
+
+format = """
+[](fg:surface0)\
+$os\
+$username\
+${env_var.STARSHIP_HOST_LOCAL}\
+${env_var.STARSHIP_HOST_SSH}\
+${custom.directory_icon}\
+$directory\
+${custom.git_provider}\
+$git_branch\
+$git_commit\
+$git_state\
+$git_status\
+$python\
+$terraform\
+[ ](fg:surface0)\
+$cmd_duration\
+$status\
+$line_break\
+$character"""
+
+# k8s-cli-toolkit: the Tanzu context joins the Kubernetes context on the right.
+right_format = "${custom.tanzu}$kubernetes"
+
+palette = 'catppuccin_mocha'
+
+[os]
+disabled = false
+style = "bg:surface0 fg:text"
+
+[os.symbols]
+AIX = " "
+AlmaLinux = " "
+Alpaquita = " "
+Alpine = " "
+ALTLinux = " "
+Amazon = " "
+Android = " "
+AOSC = " "
+Arch = " "
+Artix = " "
+Bluefin = " "
+CachyOS = " "
+CentOS = " "
+Debian = " "
+DragonFly = " "
+Elementary = " "
+Emscripten = " "
+EndeavourOS = " "
+Fedora = " "
+FreeBSD = " "
+Garuda = " "
+Gentoo = " "
+HardenedBSD = "󰞌 "
+Illumos = " "
+InstantOS = " "
+Ios = "󰀷 "
+Kali = " "
+Linux = " "
+Mabox = " "
+Macos = " "
+Manjaro = " "
+Mariner = " "
+MidnightBSD = " "
+Mint = " "
+NetBSD = " "
+NixOS = " "
+Nobara = " "
+OpenBSD = " "
+OpenCloudOS = " "
+openEuler = " "
+openSUSE = " "
+OracleLinux = "󰺡 "
+PikaOS = " "
+Pop = " "
+Raspbian = " "
+Redhat = "󱄛 "
+RedHatEnterprise = "󱄛 "
+Redox = "󰀘 "
+RockyLinux = " "
+Solus = " "
+SUSE = " "
+Ubuntu = " "
+Ultramarine = " "
+Unknown = " "
+Uos = " "
+Void = " "
+Windows = "󰍲 "
+Zorin = " "
+
+[username]
+show_always = false
+style_user = "bg:surface0 fg:overlay1"
+style_root = "bold bg:surface0 fg:red"
+format = '[ ](fg:overlay0 bg:surface0)[ $user]($style)'
+
+# Hostname via env_var modules (exported once by starship.prompt) rather than
+# custom modules: env_var renders in-process, custom spawned `sh -c hostname`
+# every prompt. STARSHIP_HOST_LOCAL is set for local shells, STARSHIP_HOST_SSH
+# inside ssh sessions — same conditionality as the old `when` clauses.
+[env_var.STARSHIP_HOST_LOCAL]
+variable = "STARSHIP_HOST_LOCAL"
+style = "bg:surface0 fg:overlay1"
+format = '[ ](fg:overlay0 bg:surface0)[ $env_value]($style)'
+
+[env_var.STARSHIP_HOST_SSH]
+variable = "STARSHIP_HOST_SSH"
+style = "bold bg:surface0 fg:red"
+format = '[ ](fg:overlay0 bg:surface0)[  $env_value]($style)'
+
+[directory]
+style = "bold bg:surface0 fg:blue"
+format = '[ $path]($style)'
+truncate_to_repo = false
+truncation_length = 3
+truncation_symbol = "…/"
+home_symbol = "~"
+read_only = " 󰌾"
+
+[directory.substitutions]
+"Documents" = "󰈙 "
+"Downloads" = " "
+"Music" = "󰝚 "
+"Pictures" = " "
+"Developer" = "󰲋 "
+
+[custom.directory_icon]
+command = '''
+case "${PWD}" in
+  "${HOME}"|"${HOME}"/*) printf '' ;;
+  *) printf '' ;;
+esac
+'''
+when = true
+shell = ["sh"]
+style = "bg:surface0 fg:blue"
+format = '[ ](fg:overlay0 bg:surface0)[ $output]($style)'
+
+[custom.git_provider]
+command = '''
+remote_url=$(git remote get-url origin 2>/dev/null || git remote get-url "$(git remote | head -n 1)" 2>/dev/null)
+case "${remote_url}" in
+  *github.com*) printf '' ;;
+  *gitlab.com*) printf '' ;;
+  *bitbucket.org*) printf '' ;;
+  *) printf '' ;;
+esac
+'''
+when = "git rev-parse --is-inside-work-tree >/dev/null 2>&1"
+shell = ["sh"]
+style = "bg:surface0 fg:green"
+format = '[ ](fg:overlay0 bg:surface0)[ $output]($style)'
+
+[git_branch]
+symbol = " "
+style = "bg:surface0 fg:green"
+format = '[ $symbol$branch(:$remote_branch)]($style)'
+truncation_length = 32
+truncation_symbol = "…"
+
+[git_commit]
+commit_hash_length = 8
+only_detached = true
+tag_disabled = false
+tag_symbol = "  "
+style = "bg:surface0 fg:green"
+format = '[ @${hash}${tag}]($style)'
+
+[git_state]
+rebase = "rebase"
+merge = "merge"
+revert = "revert"
+cherry_pick = "cherry-pick"
+bisect = "bisect"
+am = "am"
+am_or_rebase = "am/rebase"
+style = "bg:surface0 fg:red"
+format = '[ $state( $progress_current/$progress_total)]($style)'
+
+[git_status]
+style = "bg:surface0 fg:yellow"
+format = '[$all_status$ahead_behind]($style)'
+conflicted = '[ ~${count}](fg:red bg:surface0)'
+ahead = '[ ⇡${count}](fg:green bg:surface0)'
+behind = '[ ⇣${count}](fg:green bg:surface0)'
+diverged = '[ ⇣${behind_count}⇡${ahead_count}](fg:green bg:surface0)'
+up_to_date = ""
+untracked = '[ ?${count}](fg:blue bg:surface0)'
+stashed = '[ *${count}](fg:green bg:surface0)'
+modified = '[ !${count}](fg:yellow bg:surface0)'
+staged = '[ +${count}](fg:yellow bg:surface0)'
+renamed = '[ »${count}](fg:yellow bg:surface0)'
+deleted = '[ ✘${count}](fg:red bg:surface0)'
+typechanged = '[ ≋${count}](fg:yellow bg:surface0)'
+
+[nodejs]
+disabled = true
+symbol = " "
+style = "bg:surface0 fg:green"
+format = '[ ](fg:overlay0 bg:surface0)[ $symbol($version)]($style)'
+
+[c]
+disabled = true
+symbol = " "
+style = "bg:surface0 fg:green"
+format = '[ ](fg:overlay0 bg:surface0)[ $symbol($version)]($style)'
+
+[rust]
+disabled = true
+symbol = "󱘗 "
+style = "bg:surface0 fg:green"
+format = '[ ](fg:overlay0 bg:surface0)[ $symbol($version)]($style)'
+
+[golang]
+disabled = true
+symbol = " "
+style = "bg:surface0 fg:green"
+format = '[ ](fg:overlay0 bg:surface0)[ $symbol($version)]($style)'
+
+[php]
+disabled = true
+symbol = " "
+style = "bg:surface0 fg:green"
+format = '[ ](fg:overlay0 bg:surface0)[ $symbol($version)]($style)'
+
+[java]
+disabled = true
+symbol = " "
+style = "bg:surface0 fg:green"
+format = '[ ](fg:overlay0 bg:surface0)[ $symbol($version)]($style)'
+
+[kotlin]
+disabled = true
+symbol = " "
+style = "bg:surface0 fg:green"
+format = '[ ](fg:overlay0 bg:surface0)[ $symbol($version)]($style)'
+
+[haskell]
+disabled = true
+symbol = " "
+style = "bg:surface0 fg:green"
+format = '[ ](fg:overlay0 bg:surface0)[ $symbol($version)]($style)'
+
+[python]
+disabled = false
+symbol = " "
+style = "bg:surface0 fg:green"
+format = '[ ](fg:overlay0 bg:surface0)[ $symbol$version( \($virtualenv\))]($style)'
+
+[docker_context]
+symbol = " "
+style = "bg:surface0 fg:sapphire"
+format = '[ ](fg:overlay0 bg:surface0)[ $symbol$context]($style)'
+
+[kubernetes]
+disabled = false
+detect_env_vars = ["STARSHIP_KUBERNETES_ACTIVE"]
+symbol = "󱃾 "
+style = "fg:blue bg:surface0"
+format = '[](fg:surface0)[$symbol$context(/$namespace)]($style)[](fg:surface0)'
+
+# k8s-cli-toolkit: active Tanzu context. Like $kubernetes it shows only while
+# a Kubernetes-related command is being typed (STARSHIP_KUBERNETES_ACTIVE, set
+# by the zshrc), so `tanzu` is spawned on that transition, not every prompt.
+[custom.tanzu]
+command = '''
+TANZU_CLI_CEIP_OPT_IN_PROMPT_ANSWER=No tanzu context current --short </dev/null 2>/dev/null |
+  head -n1 | grep -v 'no active context'
+'''
+when = '''test -n "${STARSHIP_KUBERNETES_ACTIVE}" && test -s "${HOME}/.config/tanzu/config.yaml"'''
+shell = ["sh"]
+style = "fg:red bg:surface0"
+format = '[](fg:surface0)[⚙ $output]($style)[](fg:surface0) '
+
+[conda]
+disabled = true
+symbol = " "
+style = "bg:surface0 fg:sapphire"
+format = '[ ](fg:overlay0 bg:surface0)[ $symbol$environment]($style)'
+ignore_base = false
+
+[time]
+disabled = true
+time_format = "%R"
+style = "bg:surface0 fg:lavender"
+format = '[ ](fg:overlay0 bg:surface0)[  $time]($style)'
+
+[line_break]
+disabled = true
+
+[character]
+disabled = false
+success_symbol = '[❯](bold fg:green)'
+error_symbol = '[❯](bold fg:red)'
+vimcmd_symbol = '[❮](bold fg:green)'
+vimcmd_replace_one_symbol = '[❮](bold fg:lavender)'
+vimcmd_replace_symbol = '[❮](bold fg:lavender)'
+vimcmd_visual_symbol = '[❮](bold fg:yellow)'
+
+[cmd_duration]
+show_milliseconds = true
+format = "[ $duration](bold fg:lavender) "
+disabled = false
+show_notifications = true
+min_time_to_notify = 45000
+
+# Symbols merged from Starship's official `nerd-font-symbols` preset.
+[aws]
+symbol = " "
+
+[azure]
+symbol = " "
+
+[battery]
+full_symbol = "󰁹 "
+charging_symbol = "󰂄 "
+discharging_symbol = "󰂃 "
+unknown_symbol = "󰂑 "
+empty_symbol = "󰂎 "
+
+[buf]
+symbol = " "
+
+[bun]
+symbol = " "
+
+[cpp]
+symbol = " "
+
+[cmake]
+symbol = " "
+
+[cobol]
+symbol = " "
+
+[container]
+symbol = " "
+
+[crystal]
+symbol = " "
+
+[dart]
+symbol = " "
+
+[deno]
+symbol = " "
+
+[direnv]
+symbol = " "
+disabled = true
+
+[dotnet]
+symbol = " "
+
+[elixir]
+symbol = " "
+
+[elm]
+symbol = " "
+
+[erlang]
+symbol = " "
+
+[fennel]
+symbol = " "
+
+[fortran]
+symbol = " "
+
+[fossil_branch]
+symbol = " "
+
+[gcloud]
+symbol = "󱇶 "
+
+[gleam]
+symbol = " "
+
+[gradle]
+symbol = " "
+
+[guix_shell]
+symbol = " "
+
+[haxe]
+symbol = " "
+
+[helm]
+symbol = " "
+disabled = true
+
+[hg_branch]
+symbol = " "
+
+[julia]
+symbol = " "
+
+[lua]
+symbol = " "
+
+[maven]
+symbol = " "
+
+[memory_usage]
+symbol = "󰍛 "
+
+[meson]
+symbol = "󰔷 "
+
+[mojo]
+symbol = "󰈸 "
+
+[nats]
+symbol = " "
+
+[netns]
+symbol = "󰛳 "
+
+[nim]
+symbol = " "
+
+[nix_shell]
+symbol = " "
+
+[ocaml]
+symbol = " "
+
+[odin]
+symbol = "󰟢 "
+
+[opa]
+symbol = " "
+
+[openstack]
+symbol = " "
+
+[package]
+symbol = "󰏗 "
+
+[perl]
+symbol = " "
+
+[pijul_channel]
+symbol = " "
+
+[pixi]
+symbol = "󰏗 "
+
+[pulumi]
+symbol = " "
+
+[purescript]
+symbol = " "
+
+[raku]
+symbol = "󱖊 "
+
+[red]
+symbol = "󱍼 "
+
+[rlang]
+symbol = "󰟔 "
+
+[ruby]
+symbol = " "
+
+[scala]
+symbol = " "
+
+[shlvl]
+symbol = "󰹍 "
+
+[singularity]
+symbol = " "
+
+[solidity]
+symbol = " "
+
+[spack]
+symbol = " "
+
+[status]
+symbol = " "
+disabled = false
+style = "bold fg:red"
+format = '[$symbol$status]($style) '
+
+[sudo]
+symbol = " "
+disabled = true
+
+[swift]
+symbol = " "
+
+[terraform]
+symbol = " "
+disabled = false
+style = "bg:surface0 fg:mauve"
+format = '[ ](fg:overlay0 bg:surface0)[ $symbol$workspace]($style)'
+
+[typst]
+symbol = " "
+
+[vagrant]
+symbol = " "
+
+[vlang]
+symbol = " "
+
+[xmake]
+symbol = " "
+
+[zig]
+symbol = " "
+
+[palettes.catppuccin_mocha]
+rosewater = "#f5e0dc"
+flamingo = "#f2cdcd"
+pink = "#f5c2e7"
+mauve = "#cba6f7"
+red = "#f38ba8"
+maroon = "#eba0ac"
+peach = "#fab387"
+yellow = "#f9e2af"
+green = "#a6e3a1"
+teal = "#94e2d5"
+sky = "#89dceb"
+sapphire = "#74c7ec"
+blue = "#89b4fa"
+lavender = "#b4befe"
+text = "#cdd6f4"
+subtext1 = "#bac2de"
+subtext0 = "#a6adc8"
+overlay2 = "#9399b2"
+overlay1 = "#7f849c"
+overlay0 = "#6c7086"
+surface2 = "#585b70"
+surface1 = "#45475a"
+surface0 = "#313244"
+base = "#1e1e2e"
+mantle = "#181825"
+crust = "#11111b"
