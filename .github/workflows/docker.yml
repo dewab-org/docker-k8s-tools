@@ -8,6 +8,15 @@ name: Docker
 #
 # Every event publishes, pull requests included (as pr-<N>), because the
 # shared pipeline always pushes.
+#
+# Five variants come from one Dockerfile (see its header), one build each.
+# `all` keeps the plain tags (latest, sha-<commit>, pr-<N>, <semver>); every
+# other variant gets the same tags with a -<variant> suffix, and `latest`
+# becomes the bare variant name:
+#
+#   all        latest        sha-abc1234             pr-7
+#   standard   standard      sha-abc1234-standard    pr-7-standard
+#   tanzu      tanzu         sha-abc1234-tanzu       pr-7-tanzu   ...
 
 on:
   push:
@@ -15,7 +24,7 @@ on:
     tags: ["v*"]
   pull_request:
     branches: [main]
-  # Weekly no-cache rebuild of main. Both stages run `apt-get upgrade` and
+  # Weekly no-cache rebuild of main. The runtime stage runs `apt-get upgrade` and
   # generate-env.sh re-resolves every tool to its latest upstream release, so
   # a BuildKit cache hit would keep serving months-old layers - which is
   # exactly how the previous pipeline accumulated 54 fixable Debian CVEs
@@ -35,9 +44,8 @@ jobs:
   meta:
     runs-on: arc-runners
     outputs:
-      version: ${{ steps.split.outputs.version }}
-      extra_tags: ${{ steps.split.outputs.extra_tags }}
-      sha_tag: ${{ steps.split.outputs.sha_tag }}
+      version: ${{ steps.meta.outputs.version }}
+      matrix: ${{ steps.split.outputs.matrix }}
       build_args: ${{ steps.versions.outputs.build_args }}
     steps:
       - name: Check out repository
@@ -57,23 +65,29 @@ jobs:
             type=sha,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Split into primary and extra tags
+      - name: Compute per-variant tags
         id: split
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
           set -euo pipefail
-          extra="$(printf '%s\n' "$TAGS" | grep -vxF "$VERSION" | grep . || true)"
-          sha_tag="$(printf '%s\n' "$TAGS" | grep -m1 '^sha-')"
-          {
-            echo "version=$VERSION"
-            echo "sha_tag=$sha_tag"
-            echo "extra_tags<<EOF"
-            echo "$extra"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-          echo "primary: $VERSION"; echo "extra:"; echo "$extra"
+          # suffix <tag> <variant>: the tag as published for that variant.
+          suffix() {
+            if [ "$2" = all ]; then echo "$1"
+            elif [ "$1" = latest ]; then echo "$2"
+            else echo "$1-$2"; fi
+          }
+          matrix='[]'
+          for variant in all standard tanzu azure openshift; do
+            version="$(suffix "$VERSION" "$variant")"
+            extra="$(printf '%s\n' "$TAGS" | grep -vxF "$VERSION" | grep . | while read -r t; do suffix "$t" "$variant"; done || true)"
+            sha_tag="$(suffix "$(printf '%s\n' "$TAGS" | grep -m1 '^sha-')" "$variant")"
+            matrix="$(jq -c --arg v "$variant" --arg ver "$version" --arg x "$extra" --arg s "$sha_tag" \
+              '. + [{variant: $v, version: $ver, extra_tags: $x, sha_tag: $s}]' <<<"$matrix")"
+          done
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          jq . <<<"$matrix"
 
       # generate-env.sh resolves each tool to its latest upstream release and
       # appends KEY=VALUE lines to $GITHUB_ENV. Pointing GITHUB_ENV at a temp
@@ -104,31 +118,41 @@ jobs:
 
   build:
     needs: meta
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.meta.outputs.matrix) }}
     permissions:
       contents: read
       packages: write
     uses: dewab-org/homelab.actions-runner/.github/workflows/build-image.yml@d589008961ee7757f0c1b08b19aa8e7a24009feb
     with:
       image_name: k8s-cli-toolkit
-      version: ${{ needs.meta.outputs.version }}
-      extra_tags: ${{ needs.meta.outputs.extra_tags }}
+      target: ${{ matrix.variant }}
+      version: ${{ matrix.version }}
+      extra_tags: ${{ matrix.extra_tags }}
       build_args: ${{ needs.meta.outputs.build_args }}
       harbor_project: homelab
       no_cache: ${{ github.event_name == 'schedule' }}
 
   scan:
     needs: [meta, build]
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.meta.outputs.matrix) }}
     runs-on: arc-runners
     permissions:
       contents: read
       packages: read
       security-events: write
     env:
-      IMAGE_REF: ghcr.io/${{ github.repository_owner }}/k8s-cli-toolkit:${{ needs.meta.outputs.sha_tag }}
+      IMAGE_REF: ghcr.io/${{ github.repository_owner }}/k8s-cli-toolkit:${{ matrix.sha_tag }}
       TRIVY_USERNAME: ${{ github.actor }}
       TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      # Full report: OS packages and the ~20 bundled Go binaries alike.
+      # Full report: OS packages and the bundled Go binaries (and, for the
+      # azure variants, az's Python libraries) alike.
       - name: Scan with Trivy (report)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -139,13 +163,14 @@ jobs:
           exit-code: "0"
 
       - name: Upload Trivy results to Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
+          category: trivy-${{ matrix.variant }}
         continue-on-error: true
 
       # Gate on Debian packages only (`vuln-type: os`, which trivy-action maps
-      # to TRIVY_PKG_TYPES). This image ships upstream release binaries for
+      # to TRIVY_PKG_TYPES). These images ship upstream release binaries for
       # k9s, helm, kapp and friends; those carry HIGH findings in the Go
       # stdlib they were compiled against, which only the upstream project can
       # fix by cutting a new release. Gating on them would leave this pipeline

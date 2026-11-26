@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://github.com/kubecolor/kubecolor/raw/main/config-schema.json
+
+# Catppuccin Mocha
+preset: dark
+
+theme:
+  base:
+    danger: "#f38ba8"
+    info: "#cdd6f4"
+    muted: "#6c7086:italic"
+    primary: "#cba6f7"
+    secondary: "#94e2d5"
+    success: "#a6e3a1"
+    warning: "#f9e2af"
+    key:
+      - "#89b4fa"
+      - "#74c7ec"
+      - "#b4befe"
+
+  default: "#a6e3a1"
+
+  data:
+    string: "#f5e0dc"
+    number: "#fab387"
+    "null": "#6c7086:italic"
+
+  table:
+    header: "#b4befe:bold:underline"
+    columns:
+      - "#cdd6f4"
+      - "#94e2d5"

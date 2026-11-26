@@ -13,27 +13,59 @@ It is designed to simplify tool setup for administrators—especially those work
 
 ---
 
+## 🧩 Variants
+
+One Dockerfile builds five images. Pick the smallest one that covers your platform:
+
+| Variant | Tag | Adds to `standard` |
+|---------|-----|--------------------|
+| `standard` | `:standard` | — |
+| `tanzu` | `:tanzu` | VMware Tanzu, vSphere Supervisor, Carvel, Cluster API, Velero |
+| `azure` | `:azure` | Azure CLI, Azure Developer CLI, kubelogin |
+| `openshift` | `:openshift` | OpenShift CLI, odo, Tekton CLI |
+| `all` | `:latest` | everything above |
+
+`:latest` stays the full image, so existing `docker run ...:latest` commands keep working.
+
+---
+
 ## 📦 Included Tools
 
-| Tool        | Description                              |
-|-------------|------------------------------------------|
-| `kubectl`   | Kubernetes CLI                           |
-| `helm`      | Kubernetes package manager               |
-| `k9s`       | Terminal UI for managing K8s clusters    |
-| `kubectx`   | Switch between kube contexts             |
-| `kubecolor` | Colorizes kubectl output                 |
-| `yq`        | YAML processor                           |
-| `ytt`       | YAML templating tool (Carvel)            |
-| `kapp`      | App deployment tool (Carvel)             |
-| `kctrl`     | App CR control CLI (Carvel)              |
-| `kbld`      | Build and image reference tool (Carvel)  |
-| `imgpkg`    | OCI image packaging tool (Carvel)        |
-| `vendir`    | Vendor directory manager (Carvel)        |
-| `tanzu`     | VMware Tanzu CLI                         |
-| `velero`    | Backup and restore CLI                   |
-| `eza`       | Modern replacement for `ls`             |
+**standard** (in every variant)
 
-> **Note:** The `kubectl-vsphere` plugin is included only on the `amd64` platform. There is currently no official Linux `arm64` build available.
+| Tool | Description |
+|------|-------------|
+| `kubectl` | Kubernetes CLI |
+| `helm` / `helmfile` | Package manager / declarative Helm releases |
+| `kustomize` | Standalone kustomize (newer than the copy built into kubectl) |
+| `k9s` | Terminal UI for clusters |
+| `stern` | Tail logs across many pods |
+| `kubeconform` | Offline manifest validation |
+| `kubectl krew` | kubectl plugin manager (plugins persist in `/k8s/.krew`) |
+| `kubectx` / `kubens` | Switch contexts and namespaces |
+| `kubecolor` | Colorized kubectl output |
+| `yq` / `jq` | YAML and JSON processors |
+| `fzf`, `eza`, `zoxide`, `direnv`, `starship` | Shell: fuzzy finder, `ls`, smarter `cd`, per-directory env, prompt |
+
+**tanzu**: `tanzu`, `kubectl-vsphere`, `tkgs-login`, `tmc-get-kubeconfigs`, `velero`, `clusterctl`, and the Carvel tools `ytt`, `kapp`, `kctrl`, `kbld`, `imgpkg`, `vendir`.
+
+> **Note:** `kubectl-vsphere` is included only on `amd64`. There is currently no official Linux `arm64` build available.
+
+**azure**: `az` (installed from PyPI, since Microsoft's apt repo has no Debian 13 suite), `azd`, `kubelogin`.
+
+**openshift**: `oc` (Red Hat's stable channel), `odo`, `tkn`. Upstream `odo` has had no release since v3.16.1 (June 2024).
+
+### Version manifest
+
+Every image records exactly what it ships in `/etc/k8s-cli-toolkit/manifest.json`: variant, image version, platform, base OS, and each tool's version as read from the installed binary at build time. Inside the container, run `versions`. From outside:
+
+```bash
+docker run --rm --entrypoint cat ghcr.io/dewab-org/k8s-cli-toolkit:standard /etc/k8s-cli-toolkit/manifest.json
+```
+
+### Supply chain
+
+Every downloaded binary is checked against the SHA-256 its upstream publishes, and the build fails on a mismatch or a missing checksum. For the few projects that publish no checksum file (eza, direnv, zoxide, clusterctl, azd), `generate-env.sh` uses the digest GitHub records for the release asset. Tool versions are resolved to the latest upstream release on every build.
 
 ---
 
@@ -47,7 +79,9 @@ Every build publishes the same image to both registries from a single build:
 | GHCR | `ghcr.io/dewab-org/k8s-cli-toolkit` |
 
 Tags are `latest` plus `sha-<commit>` on `main`, `pr-<N>` for pull requests,
-and the semver tags for `v*` releases.
+and the semver tags for `v*` releases, all for the `all` variant. The other
+variants use the same tags with a `-<variant>` suffix (`sha-<commit>-tanzu`,
+`pr-<N>-azure`), and their `latest` is the bare variant name (`:standard`).
 
 Builds run on the in-cluster `arc-runners` scale set through the estate's
 shared pipeline (`dewab-org/homelab.actions-runner` `build-image.yml`); the
@@ -55,7 +89,7 @@ Harbor robot credential comes from Vault via the runner's ServiceAccount, so
 no registry secret is stored in this repository.
 
 The scheduled Monday rebuild runs with the BuildKit cache disabled on purpose.
-Both Dockerfile stages run `apt-get upgrade` and `generate-env.sh` re-resolves
+The runtime stage runs `apt-get upgrade` and `generate-env.sh` re-resolves
 every tool to its latest upstream release, so a cache hit would silently keep
 serving stale layers.
 
@@ -173,10 +207,11 @@ This ensures the browser sends the response to the correct port.
 
 ## 🛠️ Features & Behavior
 
-- On first startup with an empty home directory, Tanzu CLI is initialized and essential plugins are installed (requires internet access; may take a few minutes).
-- The status bar with kube contexts appears once a kubeconfig exists.
-- Velero version is shown only if a kubeconfig is present.
-- All included tools have tab completion enabled.
+- The shell follows [dewab-org/profile](https://github.com/dewab-org/profile): a Starship prompt, Catppuccin Mocha colors (k9s, kubecolor, fzf, eza, jq), fzf and fzf-tab completion menus, and zoxide (`cd` jumps to frequently used directories; `zf` picks one with fzf). Your terminal needs a Nerd Font for the prompt icons.
+- The Kubernetes context (and, in the Tanzu variants, the Tanzu context) shows at the right of the prompt only while you are typing a Kubernetes command.
+- Default Starship, kubecolor and k9s configs ship in the image. To customize, put your own file at the same path under `/k8s/.config` (e.g. `/k8s/.config/starship.toml`). k9s's config is copied into `/k8s/.config/k9s` on first start, and that copy is never overwritten.
+- In the Tanzu variants, the Tanzu CLI is initialized and its essential plugins are installed on first startup with an empty home directory (requires internet access; may take a few minutes).
+- Every included tool has tab completion, generated at build time.
 
 ---
 
@@ -201,5 +236,5 @@ podman run --rm -it -v k8s-home:/k8s -v c:\Kubernetes\ca:/ca -v c:\kubernetes:/w
 ## 📝 Notes
 
 - If you mount a `/ca` volume, all `.crt` and `.pem` files are persisted in `/k8s/.ca` and added to the trusted certificate store. This only needs to be done when CAs are updated.
-- For multi-arch builds, use Docker Buildx or the provided build scripts.
+- `./build.sh` builds the `all` variant locally. Set `VARIANT=standard` (or `tanzu`, `azure`, `openshift`) for another, and `PLATFORMS=linux/amd64,linux/arm64` for a multi-arch build.
 - For best experience, use a persistent `/k8s` volume to retain history, plugins, and configuration between runs.
