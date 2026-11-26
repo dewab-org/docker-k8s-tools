@@ -1,14 +1,18 @@
 # ================================
 # Builder Stage: Install Tools
 # ================================
-ARG TARGET_OS=${TARGET_OS:-linux}
-ARG TARGET_ARCH=${TARGET_ARCH:-amd64}
-
 FROM debian:trixie-slim AS builder
 SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 
-ARG TARGET_OS
-ARG TARGET_ARCH
+# TARGETOS/TARGETARCH are populated by BuildKit from --platform. Deriving
+# TARGET_OS/TARGET_ARCH from them is what makes a multi-platform build fetch
+# the right binaries: without it, every platform downloads amd64 artifacts and
+# the arm64 image publishes successfully, then fails the moment it is run.
+# An explicit --build-arg TARGET_ARCH=... still overrides the derived value.
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGET_OS=${TARGETOS:-linux}
+ARG TARGET_ARCH=${TARGETARCH:-amd64}
 ARG IMAGE_VERSION
 
 ARG YQ_VERSION
@@ -134,7 +138,10 @@ FROM debian:trixie-slim
 SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 
 ARG IMAGE_VERSION
-ARG TARGET_ARCH
+# Same derivation as the builder stage. This stage uses TARGET_ARCH to decide
+# whether the amd64-only kubectl-vsphere plugin is installed or discarded.
+ARG TARGETARCH
+ARG TARGET_ARCH=${TARGETARCH:-amd64}
 
 LABEL org.opencontainers.image.title="k8s-cli-toolkit" \
       org.opencontainers.image.description="Multi-arch container with Kubernetes CLI tools" \
